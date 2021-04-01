@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+###############################################################################
+# Copyright (c) Intel Corporation - All rights reserved.                      #
+# This file is part of the LIBXSMM library.                                   #
+#                                                                             #
+# For information on the license, see the LICENSE file.                       #
+# Further information: https://github.com/hfp/libxsmm/                        #
+# SPDX-License-Identifier: BSD-3-Clause                                       #
+###############################################################################
+# Hans Pabst (Intel Corp.)
+###############################################################################
+
+HERE=$(cd "$(dirname $0)"; pwd -P)
+if [ "" = "${GIT_DIR}" ]; then
+  GIT_DIR=${HERE}/../../.git
+fi
+LOCKFILE=${GIT_DIR}/.commit
+CODEFILE=.codefile
+BANNED_CHARS="\t"
+
+TOUCH=$(command -v touch)
+GREP=$(command -v grep)
+GIT=$(command -v git)
+SED=$(command -v sed)
+CAT=$(command -v cat)
+WC=$(command -v wc)
+TR=$(command -v tr)
+RM=$(command -v rm)
+
+if [ "" != "${GIT}" ]; then
+  if [ "" != "${GREP}" ] && [ "" != "${SED}" ] && [ "" != "${CAT}" ] && \
+     [ "" != "${WC}" ] && [ "" != "${TR}" ] && \
+     [ "" != "$(${GIT} rev-parse --verify HEAD 2>/dev/null)" ];
+  then
+    if [ -e ${CODEFILE} ]; then
+      # transform wildcard-style patterns to regular expressions
+      PATTERNS="$(${SED} -e 's/\./\\./g' -e 's/\*/..*/g' -e 's/?/./g' -e 's/$/\$/g' ${CODEFILE} 2>/dev/null)"
+    fi
+    ISSUES=0
+    IFS_BACKUP="${IFS}"
+    IFS=""
+    while read -r LINE; do
+      IFS="${IFS_BACKUP}"
+      # determine the filename of the patch snippet
+      MATCH=$(echo "${LINE}" | ${SED} -n "s/^diff --git a\/\(..*\) b..*$/\1/p" 2>/dev/null)
+      if [ "" != "${MATCH}" ] && [ -e ${MATCH} ]; then # file must exist i.e., not a deletion
+        # check if problem is with a permitted file type
+        for PATTERN in ${PATTERNS}; do
+          MATCHOK=$(echo "${MATCH}" | ${GREP} -e "${PATTERN}" 2>/dev/null)
+          if [ "" != "${MATCHOK}" ]; then
+            FILENAME=${MATCHOK}
+            break
+          fi
+        done
+      elif [ "" != "${FILENAME}" ]; then
+        # check against banned characters
+        MATCH=$(${CAT} -n ${FILENAME} | ${SED} -n "s/^ *\([0-9][0-9]*\)\t.*[${BANNED_CHARS}]..*$/\1/p" 2>/dev/null)
+        if [ "" != "${MATCH}" ]; then
+          N=$(echo ${MATCH} | ${WC} -w)
+          if [ "1" = "${N}" ]; then # single occurrence
+            >&2 echo "Issue: ${FILENAME}:${MATCH} contains a banned character."
+          else # multiple occurrences
+            LOCATION=$(echo ${MATCH} | ${TR} " " ",")
+            >&2 echo "Issue: ${FILENAME}:${LOCATION} contains banned characters."
+          fi
+          ISSUES=$((ISSUES+N))
+        fi
+        # check against trailing whitespace(s)
+        MATCH=$(${CAT} -n ${FILENAME} | ${SED} -n "s/^ *\([0-9][0-9]*\)\t.*[[:space:]][[:space:]]*$/\1/p" 2>/dev/null)
+        if [ "" != "${MATCH}" ]; then
+          N=$(echo ${MATCH} | ${WC} -w)
+          if [ "1" = "${N}" ]; then # single occurrence
+            >&2 echo "Issue: ${FILENAME}:${MATCH} has a trailing whitespace."
+          else # multiple occurrences
+            LOCATION=$(echo ${MATCH} | ${TR} " " ",")
+            >&2 echo "Issue: ${FILENAME}:${LOCATION} has trailing spaces."
+          fi
+          ISSUES=$((ISSUES+N))
+        fi
+        # checks are finished for this file
+        FILENAME=""
+      fi
+      IFS=""
+    done < <(${GIT} diff-index -p -M --cached HEAD)
+    IFS="${IFS_BACKUP}"
+    # reject commit in case of an issue
+    if [ "0" != "${ISSUES}" ]; then
+      if [ "1" = "${ISSUES}" ]; then # single issue
+        >&2 echo -n "Error: 1 issue"
+      else # multiple issues
+        >&2 echo -n "Error: ${ISSUES} issues"
+      fi
+      >&2 echo " found - consider ./scripts/tool_normalize.sh!"
+      exit 1
+    fi
+  fi
+
+  if [ "" != "${TOUCH}" ] && [ "" != "${GREP}" ] && [ "" != "${RM}" ]; then
+    if [ "" = "$(${GIT} diff --cached --name-only | ${GREP} version.txt)" ]; then
+      # trigger updating the version file
+      ${TOUCH} "${LOCKFILE}-version"
+    else # cleanup
+      ${RM} -f "${LOCKFILE}-version"
+    fi
+  fi
+fi
+

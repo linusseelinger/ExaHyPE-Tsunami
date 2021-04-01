@@ -1,0 +1,13 @@
+script:
+  - make -e ${MAKEJ} && cd samples/deeplearning/rnndriver && make -e ${MAKEJ} &&
+   (echo; echo "--- TEST RNN (NCNC-KCCK)"; CHECK=1 ./rnndriver_ncnc_kcck.sh) &&
+   (echo; echo "--- TEST RNN (NC-KCCK)"; CHECK=1 ./rnndriver_nc_kcck.sh) &&
+   (echo; echo "--- TEST RNN (NC-CK)"; CHECK=1 ./rnndriver_nc_ck.sh)
+
+  - make -e ${MAKEJ} && cd samples/deeplearning/lstmdriver && make -e ${MAKEJ} &&
+   (echo; echo "--- TEST LSTM (NC-CK)"; CHECK=1 ./lstmdriver_nc_ck.sh) &&
+   (echo; echo "--- TEST LSTM (NC-CK/BF16)"; CHECK=1 ./lstmdriver_nc_ck_bf16.sh) &&
+   (echo; echo "--- TEST LSTM (NC-CKCK)"; CHECK=1 ./lstmdriver_nc_kcck.sh)
+
+  - true || (make -e ${MAKEJ} && cd samples/deeplearning/grudriver && make -e ${MAKEJ} &&
+   (echo; echo "--- TEST GRU"; CHECK=1 ./grudriver.sh))

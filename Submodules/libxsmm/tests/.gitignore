@@ -1,0 +1,16 @@
+atomics
+gemm
+gemmflags
+hash
+headeronly
+malloc
+matcopy
+matdiff
+math
+mhd
+registry
+rng
+threadsafety
+timer
+trans
+vla
