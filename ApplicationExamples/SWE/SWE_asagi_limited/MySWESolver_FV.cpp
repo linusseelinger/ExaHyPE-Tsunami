@@ -2,11 +2,23 @@
 #include "MySWESolver_FV_Variables.h"
 
 #include "kernels/KernelUtils.h"
-#include "muq_globals.h"
 
 using namespace kernels;
 
+double epsilon = 1e-2;
+double grav = 9.81;
+InitialData* initialData;
+
 void SWE::MySWESolver_FV::init(const std::vector<std::string>& cmdlineargs,const exahype::parser::ParserView& constants) {
+
+    //TODO read level and parameters
+    int level = 0;
+    if(level == 0){
+        initialData = new InitialData(15,"data_gmt.yaml");
+    }
+    else{
+        initialData = new InitialData(14,"data_gmt.yaml");
+    }
 }
 
 
@@ -17,11 +29,11 @@ void SWE::MySWESolver_FV::adjustSolution(const double* const x,const double t,co
 	if (tarch::la::equals(t,0.0)) {
 		static tarch::multicore::BooleanSemaphore initializationSemaphoreDG;
 		tarch::multicore::Lock lock(initializationSemaphoreDG);
-		muq::initialDataFV->getInitialData(x, Q);
+		initialData->getInitialData(x, Q);
 		lock.free();
 	}
 	else{
-		if(Q[0] < muq::epsilon){
+		if(Q[0] < epsilon){
 			Q[1] = 0;
 			Q[2] = 0;      
 		}
@@ -35,8 +47,8 @@ void SWE::MySWESolver_FV::eigenvalues(const double* const Q, const int dIndex, d
   ReadOnlyVariables vars(Q);
   Variables eigs(lambda);
 
-  const double c = std::sqrt(muq::grav * vars.h());
-  double u_n = Q[dIndex + 1] * vars.h() * std::sqrt(2)/std::sqrt(std::pow(vars.h(), 4) + std::pow(std::max(vars.h(), muq::epsilon), 4));
+  const double c = std::sqrt(grav * vars.h());
+  double u_n = Q[dIndex + 1] * vars.h() * std::sqrt(2)/std::sqrt(std::pow(vars.h(), 4) + std::pow(std::max(vars.h(), epsilon), 4));
 
   eigs.h() = u_n + c;
   eigs.hu() = u_n - c;
@@ -44,7 +56,7 @@ void SWE::MySWESolver_FV::eigenvalues(const double* const Q, const int dIndex, d
   eigs.b() = 0.0;
 
   if(tarch::la::equals(u_n,0.0) && tarch::la::equals(c,0.0)){
-    eigs.h() = std::sqrt(muq::grav * muq::epsilon);
+    eigs.h() = std::sqrt(grav * epsilon);
   }
 
 }
@@ -93,8 +105,8 @@ void SWE::MySWESolver_FV::flux(const double* const Q,double** const F) {
   double* f = F[0];
   double* g = F[1];
 
-  double u_n = vars.hu() * vars.h() *std::sqrt(2)/std::sqrt(std::pow(vars.h(), 4) + std::pow(std::max(vars.h(), muq::epsilon), 4));
-  double v_n = vars.hv() * vars.h() *std::sqrt(2)/std::sqrt(std::pow(vars.h(), 4) + std::pow(std::max(vars.h(), muq::epsilon), 4));
+  double u_n = vars.hu() * vars.h() *std::sqrt(2)/std::sqrt(std::pow(vars.h(), 4) + std::pow(std::max(vars.h(), epsilon), 4));
+  double v_n = vars.hv() * vars.h() *std::sqrt(2)/std::sqrt(std::pow(vars.h(), 4) + std::pow(std::max(vars.h(), epsilon), 4));
 
   f[0] = vars.h() * u_n;
   f[1] = vars.h() * u_n * u_n; // 0.5 * muq::grav * vars.h() * vars.h();
@@ -148,7 +160,7 @@ double SWE::MySWESolver_FV::riemannSolver(double* const fL, double* const fR, co
 
     double djump[NumberOfVariables] = {0.0};
 
-    djump[direction + 1] = 0.5*muq::grav*hRoe*Delta;
+    djump[direction + 1] = 0.5*grav*hRoe*Delta;
 
     flux[0] = 0.5 * (FL[direction][0] + FR[direction][0]) - 0.5*smax*Delta;
     for (int i = 0; i < NumberOfVariables; i++){

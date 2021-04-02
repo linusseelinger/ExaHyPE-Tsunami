@@ -12,7 +12,6 @@
 #include "peano/utils/Loop.h"
 #include "kernels/KernelUtils.h"
 #include "../../../ExaHyPE/kernels/GaussLegendreBasis.h"
-#include "muq_globals.h"
 #include "InitialData.h"
 #include "stdlib.h"
 
@@ -20,9 +19,21 @@ using namespace kernels;
 
 tarch::logging::Log SWE::MySWESolver_ADERDG::_log( "SWE::MySWESolver_ADERDG" );
 
+namespace DG{
+	double grav = 9.81;
+	double epsilon = 1e-2;
+	int level = 0;
+	InitialData* initialData;
+}
 
 void SWE::MySWESolver_ADERDG::init(const std::vector<std::string>& cmdlineargs,const exahype::parser::ParserView& constants) {
-    muq::set_globals();
+    //TODO read DG::level and parameters
+    if(DG::level == 0){
+        DG::initialData = new InitialData(15,"data_gmt.yaml");
+    }
+    else{
+        DG::initialData = new InitialData(14,"data_gmt.yaml");
+    }
 }
 
 
@@ -32,7 +43,7 @@ void SWE::MySWESolver_ADERDG::adjustPointSolution(const double* const x,const do
     if (tarch::la::equals(t,0.0)) {
 	static tarch::multicore::BooleanSemaphore initializationSemaphoreDG;
 	tarch::multicore::Lock lock(initializationSemaphoreDG);
-	muq::initialData->getInitialData(x, Q);		
+	DG::initialData->getInitialData(x, Q);		
         lock.free();
     }
 }
@@ -50,7 +61,7 @@ void SWE::MySWESolver_ADERDG::boundaryValues(const double* const x,const double 
 }
 
 exahype::solvers::Solver::RefinementControl SWE::MySWESolver_ADERDG::refinementCriterion(const double* const luh,const tarch::la::Vector<DIMENSIONS,double>& center,const tarch::la::Vector<DIMENSIONS,double>& dx,double t,const int lev) {
-    if(muq::level == 0){
+    if(DG::level == 0){
 	if(lev == getCoarsestMeshLevel())
 		return exahype::solvers::Solver::RefinementControl::Keep;
 	return exahype::solvers::Solver::RefinementControl::Erase;
@@ -84,11 +95,11 @@ void SWE::MySWESolver_ADERDG::eigenvalues(const double* const Q,const int d,doub
   ReadOnlyVariables vars(Q);
   Variables eigs(lambda);
 
-  const double c = std::sqrt(muq::grav*vars.h());
+  const double c = std::sqrt(DG::grav*vars.h());
   const double ih = 1./vars.h();
   double u_n = Q[d + 1] * ih;
 
-  if(Q[0]<muq::epsilon){
+  if(Q[0]<DG::epsilon){
       eigs.h() = 0.0;
   }
   else{
@@ -97,7 +108,7 @@ void SWE::MySWESolver_ADERDG::eigenvalues(const double* const Q,const int d,doub
       eigs.hv() = u_n;
       eigs.b() = 0.0;
   }
-  if(muq::level == 1){ //Varying CFL based on level
+  if(DG::level == 1){ //Varying CFL based on DG::level
       eigs.h()*=1.2;
       eigs.hu()*=1.2;
       eigs.hv()*=1.2;
@@ -116,7 +127,7 @@ void SWE::MySWESolver_ADERDG::flux(const double* const Q,double** const F) {
 	double* f = F[0];
 	double* g = F[1];
 
-	if(Q[0]<muq::epsilon){
+	if(Q[0]<DG::epsilon){
 		f[0] = 0.0;
 		f[1] = 0.0;
 		f[2] = 0.0;
@@ -130,7 +141,7 @@ void SWE::MySWESolver_ADERDG::flux(const double* const Q,double** const F) {
 	else{
 		f[0] = vars.hu();
 		// Moved hydrostatic pressure to ncp for well balancedness
-		//f[1] = vars.hu() * vars.hu() * ih + 0.5 * muq::grav * vars.h() * vars.h();
+		//f[1] = vars.hu() * vars.hu() * ih + 0.5 * DG::grav * vars.h() * vars.h();
 		f[1] = vars.hu() * vars.hu() * ih;
 		f[2] = vars.hu() * vars.hv() * ih;
 		f[3] = 0.0;
@@ -138,7 +149,7 @@ void SWE::MySWESolver_ADERDG::flux(const double* const Q,double** const F) {
 		g[0] = vars.hv();
 		g[1] = vars.hu() * vars.hv() * ih;
 		// Moved hydrostatic pressure to ncp for well balancedness
-		//g[2] = vars.hv() * vars.hv() * ih + 0.5 * muq::grav * vars.h() * vars.h();
+		//g[2] = vars.hv() * vars.hv() * ih + 0.5 * DG::grav * vars.h() * vars.h();
 		g[2] = vars.hv() * vars.hv() * ih;
 		g[3] = 0.0;
 	}
@@ -149,8 +160,8 @@ void  SWE::MySWESolver_ADERDG::nonConservativeProduct(const double* const Q,cons
   idx2 idx_gradQ(DIMENSIONS,NumberOfVariables);
 
   BgradQ[0] = 0.0;
-  BgradQ[1] = muq::grav*Q[0]*gradQ[idx_gradQ(0,3)] + muq::grav*Q[0]*gradQ[idx_gradQ(0,0)]; 
-  BgradQ[2] = muq::grav*Q[0]*gradQ[idx_gradQ(1,3)] + muq::grav*Q[0]*gradQ[idx_gradQ(1,0)];
+  BgradQ[1] = DG::grav*Q[0]*gradQ[idx_gradQ(0,3)] + DG::grav*Q[0]*gradQ[idx_gradQ(0,0)]; 
+  BgradQ[2] = DG::grav*Q[0]*gradQ[idx_gradQ(1,3)] + DG::grav*Q[0]*gradQ[idx_gradQ(1,0)];
   BgradQ[3] = 0.0;
 }
 
@@ -163,7 +174,7 @@ bool SWE::MySWESolver_ADERDG::isPhysicallyAdmissible(
       const tarch::la::Vector<DIMENSIONS,double>& dx,
       const double t) const {
   //Limit at domain boundary
-  if(muq::level == 0){
+  if(DG::level == 0){
   /*if( std::abs(center[0]+499)<dx[0]
 	|| std::abs(center[0]-1798+499)<dx[0]
 	|| std::abs(center[1]+949)<dx[1]
@@ -173,7 +184,7 @@ bool SWE::MySWESolver_ADERDG::isPhysicallyAdmissible(
   }*/
   return true;
   }
-  if(muq::level==1){
+  if(DG::level==1){
 	double bMin, bMax, hMin;
 	idx3 id(Order+1,Order+1,NumberOfVariables);
 	bMin = std::abs(solution[id(0,0,3)]);
@@ -192,7 +203,7 @@ bool SWE::MySWESolver_ADERDG::isPhysicallyAdmissible(
 	if(std::abs(bMax - bMin) > dx[0]*2)
 		return false;
 
-	if(hMin < muq::epsilon * 100.0)
+	if(hMin < DG::epsilon * 100.0)
 		return false;
 
 	// Limit at domain boundary
