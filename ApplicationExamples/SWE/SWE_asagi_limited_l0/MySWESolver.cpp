@@ -19,16 +19,15 @@ using namespace kernels;
 
 tarch::logging::Log SWE::MySWESolver::_log( "SWE::MySWESolver" );
 
+bool isWritten = false;
 namespace DG{
-	std::vector<double> = {-1234,-1234,-1234,-1234};
-	double grav = 9.81;
+	std::vector<double> solution = {-1234,-1234,-1234,-1234};
+	double grav = 9.81*1e-3;
 	double epsilon = 1e-2;
 	InitialData* initialData;
 }
 
 void SWE::MySWESolver::init(const std::vector<std::string>& cmdlineargs,const exahype::parser::ParserView& constants) {
-	typedef std::numeric_limits<double> dl;
-	outputsfile << std::fixed << std::setprecision(dl::digits10);    
     	DG::initialData = new InitialData(15,"data_gmt.yaml");
 }
 
@@ -43,15 +42,31 @@ void SWE::MySWESolver::adjustPointSolution(const double* const x,const double t,
         lock.free();
     }
     //probe 1
-    if(x[0]<){
+    std::vector<std::vector<double>> probe_point = {{ 545.735266126, 62.7164740303 },
+  						     { 1050.67821,   798.352124}};
+    if(std::abs(x[0]-probe_point[0][0])<60.0 && std::abs(x[1]-probe_point[0][1])<60.0){
+      if(Q[0]+Q[3] > DG::solution[1+2*0]){
+	  DG::solution[0+2*0] = t; 
+	  DG::solution[1+2*0] = Q[0]+Q[3];
+      }
     }
     //probe 2
-    if(){
-
+    if(std::abs(x[0]-probe_point[1][0])<60.0 && std::abs(x[1]-probe_point[1][1])<60.0){
+      if(Q[0]+Q[3] > DG::solution[1+2*1]){
+	  DG::solution[0+2*1] = t; 
+	  DG::solution[1+2*1] = Q[0]+Q[3];
+      }
     }
-    if(lasttimestep){
-	    std::ofstream outputsfile ("/tmp/outputs.txt");
-
+    if(t>5500.0 && isWritten==false){
+	    std::ofstream outputsfile("/tmp/outputs.txt");
+	    typedef std::numeric_limits<double> dl;
+	    outputsfile << std::fixed << std::setprecision(dl::digits10);
+	    outputsfile << DG::solution[0] << std::endl;
+	    outputsfile << DG::solution[1] << std::endl;
+	    outputsfile << DG::solution[2] << std::endl;
+	    outputsfile << DG::solution[3] << std::endl;
+	    outputsfile.close();	
+	    isWritten = true;
     }
 }
 
@@ -88,10 +103,10 @@ void SWE::MySWESolver::eigenvalues(const double* const Q,const int d,double* con
   const double ih = 1./vars.h();
   double u_n = Q[d + 1] * ih;
 
-      eigs.h() = u_n + c;
-      eigs.hu() = u_n - c;
-      eigs.hv() = u_n;
-      eigs.b() = 0.0;
+  eigs.h() = u_n + c;
+  eigs.hu() = u_n - c;
+  eigs.hv() = u_n;
+  eigs.b() = 0.0;
 }
 
 void SWE::MySWESolver::flux(const double* const Q,double** const F) {
@@ -129,26 +144,6 @@ void  SWE::MySWESolver::nonConservativeProduct(const double* const Q,const doubl
   BgradQ[2] = DG::grav*Q[0]*gradQ[idx_gradQ(1,3)] + DG::grav*Q[0]*gradQ[idx_gradQ(1,0)];
   BgradQ[3] = 0.0;
 }
-
-
-bool SWE::MySWESolver::isPhysicallyAdmissible(
-      const double* const solution,
-      const double* const observablesMin,const double* const observablesMax,
-      const bool wasTroubledInPreviousTimeStep,
-      const tarch::la::Vector<DIMENSIONS,double>& center,
-      const tarch::la::Vector<DIMENSIONS,double>& dx,
-      const double t) const {
-  //Limit at domain boundary
-  /*if( std::abs(center[0]+499)<dx[0]
-	|| std::abs(center[0]-1798+499)<dx[0]
-	|| std::abs(center[1]+949)<dx[1]
-	|| std::abs(center[1]-1798+949)<dx[1]
-	){
-    return false;
-  }*/
-  return true;
-}
-
 
 void SWE::MySWESolver::riemannSolver(double* const FL,double* const FR,const double* const QL,const double* const QR,const double* gradQL, const double* gradQR, const double dt,const int direction,bool isBoundaryFace, int faceIndex) {
   constexpr int numberOfVariables  = NumberOfVariables;
