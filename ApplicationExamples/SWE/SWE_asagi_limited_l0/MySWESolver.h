@@ -147,8 +147,6 @@ class SWE::MySWESolver : public SWE::AbstractMySWESolver {
      * \param[inout]  The vector BgradQ (extends nVar), already allocated. 
      *
      **/
-    bool isPhysicallyAdmissible(const double* const solution,const double* const observablesMin,const double* const observablesMax,const bool wasTroubledInPreviousTimeStep,const tarch::la::Vector<DIMENSIONS,double>& center,	const tarch::la::Vector<DIMENSIONS,double>& dx,	const double t) const;
-
     void nonConservativeProduct(const double* const Q,const double* const gradQ,double* const BgradQ) final override;
 
     void riemannSolver(double* const FL,double* const FR,const double* const QL,const double* const QR,const double* gradQL, const double* gradQR, const double dt,const int direction,bool isBoundaryFace, int faceIndex);
