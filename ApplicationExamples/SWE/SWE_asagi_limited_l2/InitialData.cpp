@@ -5,18 +5,29 @@
 #include "reader/asagi_reader.h"
 #include <cmath>
 #include <vector>
+#include <iostream>
+#include <fstream>
+#include <iomanip>
+#include <stdlib.h>
 
 using namespace std;
 ///// 2D /////
 //TODO read in from file
 std::vector<double> param = {0.0,0.0};
 
-
 #ifdef Dim2
 
 InitialData::InitialData()
 	: scenario(){
 		std::cout << "Initialising with ASAGI" << std::endl;
+
+		std::ifstream inputsfile("/tmp/inputs.txt");
+		for (int i = 0; i < 2; i++) {
+			inputsfile >> param[i];
+		}
+		inputsfile.close();
+		std::cout << "Read inputs in exahype:" << param[0] << " and " << param[1] << std::endl;
+
 		asagiReader = new AsagiReader("");
 		parser = new easi::YAMLParser(3, asagiReader);
 		model  = parser->parse("data.yaml");
@@ -25,6 +36,14 @@ InitialData::InitialData()
 InitialData::InitialData(int a_scenario, char* filename)
 	: scenario(a_scenario){
 		std::cout << "Initialising with ASAGI" << std::endl;
+
+		std::ifstream inputsfile("/tmp/inputs.txt");
+		for (int i = 0; i < 2; i++) {
+			inputsfile >> param[i];
+		}
+		inputsfile.close();
+		std::cout << "Read inputs in exahype:" << param[0] << " and " << param[1] << std::endl;
+
 		asagiReader = new AsagiReader("");
 		parser = new easi::YAMLParser(3, asagiReader);
 		model  = parser->parse(filename);

@@ -19,21 +19,17 @@ using namespace kernels;
 
 tarch::logging::Log SWE::MySWESolver_ADERDG::_log( "SWE::MySWESolver_ADERDG" );
 
+bool isWritten = false;
 namespace DG{
-	double grav = 9.81;
+	std::vector<double> solution = {-1234,-1234,-1234,-1234};
+	double grav = 9.81*1.0e-3;
 	double epsilon = 1e-2;
 	int level = 0;
 	InitialData* initialData;
 }
 
 void SWE::MySWESolver_ADERDG::init(const std::vector<std::string>& cmdlineargs,const exahype::parser::ParserView& constants) {
-    //TODO read DG::level and parameters
-    if(DG::level == 0){
-        DG::initialData = new InitialData(15,"data_gmt.yaml");
-    }
-    else{
         DG::initialData = new InitialData(14,"data_gmt.yaml");
-    }
 }
 
 
@@ -45,6 +41,33 @@ void SWE::MySWESolver_ADERDG::adjustPointSolution(const double* const x,const do
 	tarch::multicore::Lock lock(initializationSemaphoreDG);
 	DG::initialData->getInitialData(x, Q);		
         lock.free();
+    }
+    //probe 1
+    std::vector<std::vector<double>> probe_point = {{ 545.735266126, 62.7164740303 },
+  						     { 1050.67821,   798.352124}};
+    if(std::abs(x[0]-probe_point[0][0])<60.0 && std::abs(x[1]-probe_point[0][1])<60.0){
+      if(Q[0]+Q[3] > DG::solution[1+2*0]){
+	  DG::solution[0+2*0] = t; 
+	  DG::solution[1+2*0] = Q[0]+Q[3];
+      }
+    }
+    //probe 2
+    if(std::abs(x[0]-probe_point[1][0])<60.0 && std::abs(x[1]-probe_point[1][1])<60.0){
+      if(Q[0]+Q[3] > DG::solution[1+2*1]){
+	  DG::solution[0+2*1] = t; 
+	  DG::solution[1+2*1] = Q[0]+Q[3];
+      }
+    }
+    if(t>5500.0 && isWritten==false){
+	    std::ofstream outputsfile("/tmp/outputs.txt");
+	    typedef std::numeric_limits<double> dl;
+	    outputsfile << std::fixed << std::setprecision(dl::digits10);
+	    outputsfile << DG::solution[0] << std::endl;
+	    outputsfile << DG::solution[1] << std::endl;
+	    outputsfile << DG::solution[2] << std::endl;
+	    outputsfile << DG::solution[3] << std::endl;
+	    outputsfile.close();	
+	    isWritten = true;
     }
 }
 
@@ -173,18 +196,6 @@ bool SWE::MySWESolver_ADERDG::isPhysicallyAdmissible(
       const tarch::la::Vector<DIMENSIONS,double>& center,
       const tarch::la::Vector<DIMENSIONS,double>& dx,
       const double t) const {
-  //Limit at domain boundary
-  if(DG::level == 0){
-  /*if( std::abs(center[0]+499)<dx[0]
-	|| std::abs(center[0]-1798+499)<dx[0]
-	|| std::abs(center[1]+949)<dx[1]
-	|| std::abs(center[1]-1798+949)<dx[1]
-	){
-    return false;
-  }*/
-  return true;
-  }
-  if(DG::level==1){
 	double bMin, bMax, hMin;
 	idx3 id(Order+1,Order+1,NumberOfVariables);
 	bMin = std::abs(solution[id(0,0,3)]);
@@ -213,8 +224,6 @@ bool SWE::MySWESolver_ADERDG::isPhysicallyAdmissible(
 			|| std::abs(center[1]-1798+949)<dx[1])
 		return false;
 	return true;
-  }
-  return true;
 }
 
 
