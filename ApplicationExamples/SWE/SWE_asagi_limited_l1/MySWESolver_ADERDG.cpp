@@ -20,9 +20,7 @@ using namespace kernels;
 tarch::logging::Log SWE::MySWESolver_ADERDG::_log( "SWE::MySWESolver_ADERDG" );
 
 bool paramOutside = false;
-bool isWritten = false;
 namespace DG{
-	std::vector<double> solution = {-1234,-1234,-1234,-1234};
 	double grav = 9.81*1.0e-3;
 	double epsilon = 1e-2;
 	InitialData* initialData;
@@ -62,7 +60,7 @@ void SWE::MySWESolver_ADERDG::adjustPointSolution(const double* const x,const do
 			DG::initialData->getInitialData(x, Q);		
 			lock.free();
 		}
-		//probe 1
+		/*//probe 1
 		std::vector<std::vector<double>> probe_point = {{ 545.735266126, 62.7164740303 },
 			{ 1050.67821,   798.352124}};
 		if(std::abs(x[0]-probe_point[0][0])<60.0 && std::abs(x[1]-probe_point[0][1])<60.0){
@@ -88,7 +86,7 @@ void SWE::MySWESolver_ADERDG::adjustPointSolution(const double* const x,const do
 			outputsfile << DG::solution[3] << std::endl;
 			outputsfile.close();	
 			isWritten = true;
-		}
+		}*/
 	}
 }
 

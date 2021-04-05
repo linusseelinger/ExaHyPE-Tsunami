@@ -7,6 +7,9 @@
 // ========================
 #include "ProbeWriter18.h"
 
+std::vector<double> solution18 = {-1234,-1234};
+bool isWritten = false;
+
 SWE::ProbeWriter18::ProbeWriter18(SWE::MySWESolver& solver) {
   // @TODO Please insert your code here.
 }
@@ -42,10 +45,19 @@ void SWE::ProbeWriter18::mapQuantities(
 
   //std::vector<std::vector<double>> probe_point = {{ 545.735266126, 62.7164740303 },
   //TODO write out into file						     { 1050.67821,   798.352124}};
-  /*if(outputQuantities[4] > muq::solution[1+2*0]){
-	  muq::solution[0+2*0] = timeStamp; 
-	  muq::solution[1+2*0] = outputQuantities[4];
+  if(outputQuantities[4] > solution18[1]){
+	  solution18[0] = timeStamp; 
+	  solution18[1] = outputQuantities[4];
 	  //std::cout <<"Probe" << 0 << " has time " << muq::solution[0+2*0]/60 << " and height " << muq::solution[1+2*0]*1000 << std::endl;
-  }*/
+  }
+  if(timeStamp>2500.0 && isWritten==false){
+	  std::ofstream outputsfile("/tmp/outputs.txt");
+	  typedef std::numeric_limits<double> dl;
+	  outputsfile << std::fixed << std::setprecision(dl::digits10);
+	  outputsfile << solution18[0] << std::endl;
+	  outputsfile << solution18[1] << std::endl;
+	  outputsfile.close();	
+	  isWritten = true;
+  }
 
 }
