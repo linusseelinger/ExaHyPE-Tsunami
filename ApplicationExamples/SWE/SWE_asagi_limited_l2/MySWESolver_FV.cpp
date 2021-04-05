@@ -5,20 +5,13 @@
 
 using namespace kernels;
 
-double epsilon = 1e-2;
-double grav = 9.81;
+double epsilon = 1.0e-2;
+double grav = 9.81*1.0e-3;
 InitialData* initialData;
 
 void SWE::MySWESolver_FV::init(const std::vector<std::string>& cmdlineargs,const exahype::parser::ParserView& constants) {
 
-    //TODO read level and parameters
-    int level = 0;
-    if(level == 0){
         initialData = new InitialData(15,"data_gmt.yaml");
-    }
-    else{
-        initialData = new InitialData(14,"data_gmt.yaml");
-    }
 }
 
 

@@ -20,6 +20,7 @@ using namespace kernels;
 tarch::logging::Log SWE::MySWESolver::_log( "SWE::MySWESolver" );
 
 bool isWritten = false;
+bool paramOutside = false;
 namespace DG{
 	std::vector<double> solution = {-1234,-1234,-1234,-1234};
 	double grav = 9.81*1.0e-3;
@@ -28,11 +29,30 @@ namespace DG{
 }
 
 void SWE::MySWESolver::init(const std::vector<std::string>& cmdlineargs,const exahype::parser::ParserView& constants) {
-    	DG::initialData = new InitialData(15,"data_gmt.yaml");
+	std::ifstream inputsfile("/tmp/inputs.txt");
+	std::vector<double> param = {0.0,0.0};
+	for (int i = 0; i < 2; i++) {
+		inputsfile >> param[i];
+	}
+	inputsfile.close();
+	if (param[0] > 739.0 || param[0] < -239.0 || param[1]>339.0 || param[1]<-339.0){ //reject parameters outside domain
+		paramOutside = true;
+	}
+
+	DG::initialData = new InitialData(15,"data_gmt.yaml");
 }
 
 
 void SWE::MySWESolver::adjustPointSolution(const double* const x,const double t,const double dt,double* const Q) {
+	if(paramOutside){
+	    std::ofstream outputsfile("/tmp/outputs.txt");
+	    typedef std::numeric_limits<double> dl;
+	    outputsfile << std::fixed << std::setprecision(dl::digits10);
+	    for(int i = 0; i<4; i++) outputsfile << 1234.0 << std::endl;
+	    outputsfile.close();
+	    for(int i = 0; i<4; i++) Q[i] = 0.0;
+	}
+	else{
   // Dimensions                        = 2
   // Number of variables + parameters  = 4 + 0
     if (tarch::la::equals(t,0.0)) {
@@ -68,6 +88,7 @@ void SWE::MySWESolver::adjustPointSolution(const double* const x,const double t,
 	    outputsfile.close();	
 	    isWritten = true;
     }
+	}
 }
 
 void SWE::MySWESolver::boundaryValues(const double* const x,const double t,const double dt,const int faceIndex,const int normalNonZero,const double* const fluxIn,const double* const stateIn,const double* const gradStateIn,double* const fluxOut,double* const stateOut) {
@@ -94,6 +115,9 @@ exahype::solvers::Solver::RefinementControl SWE::MySWESolver::refinementCriterio
 
 
 void SWE::MySWESolver::eigenvalues(const double* const Q,const int d,double* const lambda) {
+  if(paramOutside)
+	  lambda[0] = 1.0e-4;
+  else{
   /// Dimensions                        = 2
   // Number of variables + parameters  = 4 + 0
   ReadOnlyVariables vars(Q);
@@ -108,6 +132,7 @@ void SWE::MySWESolver::eigenvalues(const double* const Q,const int d,double* con
   eigs.hv() = u_n;
   eigs.b() = 0.0;
 }
+}
 
 void SWE::MySWESolver::flux(const double* const Q,double** const F) {
 	// Dimensions                        = 2
@@ -120,6 +145,18 @@ void SWE::MySWESolver::flux(const double* const Q,double** const F) {
 	double* f = F[0];
 	double* g = F[1];
 
+	if(paramOutside){
+		f[0] = 0.0;
+		f[1] = 0.0;
+		f[2] = 0.0;
+		f[3] = 0.0;
+
+		g[0] = 0.0;
+		g[1] = 0.0;
+		g[2] = 0.0;
+		g[3] = 0.0;
+	}
+	else{
 		f[0] = vars.hu();
 		// Moved hydrostatic pressure to ncp for well balancedness
 		//f[1] = vars.hu() * vars.hu() * ih + 0.5 * DG::grav * vars.h() * vars.h();
@@ -133,15 +170,20 @@ void SWE::MySWESolver::flux(const double* const Q,double** const F) {
 		//g[2] = vars.hv() * vars.hv() * ih + 0.5 * DG::grav * vars.h() * vars.h();
 		g[2] = vars.hv() * vars.hv() * ih;
 		g[3] = 0.0;
+	}
 }
-
 
 void  SWE::MySWESolver::nonConservativeProduct(const double* const Q,const double* const gradQ,double* const BgradQ) {
   idx2 idx_gradQ(DIMENSIONS,NumberOfVariables);
-
   BgradQ[0] = 0.0;
+if(paramOutside){
+  BgradQ[1] = 0.0;
+  BgradQ[2] = 0.0;
+}
+else{
   BgradQ[1] = DG::grav*Q[0]*gradQ[idx_gradQ(0,3)] + DG::grav*Q[0]*gradQ[idx_gradQ(0,0)]; 
   BgradQ[2] = DG::grav*Q[0]*gradQ[idx_gradQ(1,3)] + DG::grav*Q[0]*gradQ[idx_gradQ(1,0)];
+}
   BgradQ[3] = 0.0;
 }
 
