@@ -23,7 +23,7 @@ bool isWritten = false;
 namespace DG{
 	std::vector<double> solution = {-1234,-1234,-1234,-1234};
 	double grav = 9.81*1.0e-3;
-	double epsilon = 1.0e-2;
+	double epsilon = 1e-2;
 	InitialData* initialData;
 }
 
