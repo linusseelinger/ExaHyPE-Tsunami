@@ -20,7 +20,7 @@
     ]
   },
   "shared_memory": {
-    "cores": 2,
+    "cores": 48,
     "properties_file": "sharedmemory.properties",
     "autotuning_strategy": "dummy",
     "background_job_consumers": 1
